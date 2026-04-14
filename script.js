@@ -1,7 +1,6 @@
 // ==========================================
 // CONFIGURAÇÕES GERAIS DA API
 // ==========================================
-// DICA: Mude para 'http://127.0.0.1:5000' se estiver testando o backend localmente
 const API_BASE_URL = 'https://projeto-academia-hazel.vercel.app';
 
 // ==========================================
@@ -82,7 +81,6 @@ btnLogout.addEventListener('click', () => {
 async function carregarClientes() {
     try {
         const resposta = await fetch(`${API_BASE_URL}/clientes`);
-
         if (resposta.ok) {
             clientes = await resposta.json(); 
             renderizarTabela(); 
@@ -121,19 +119,19 @@ function renderizarTabela() {
 clienteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const id = document.getElementById('clienteId').value;
-    const nome = document.getElementById('nome').value;
-    const cpf = document.getElementById('cpf').value;
-    const autorizado = document.getElementById('autorizado').checked;
-
-    const clienteData = { nome, cpf, autorizado };
+    const idRaw = document.getElementById('clienteId').value;
+    const clienteData = { 
+        nome: document.getElementById('nome').value, 
+        cpf: String(document.getElementById('cpf').value), 
+        autorizado: document.getElementById('autorizado').checked 
+    };
 
     try {
         let url = `${API_BASE_URL}/clientes`;
         let metodoHTTP = 'POST'; 
 
-        if (id) {
-            url = `${API_BASE_URL}/clientes/${id}`;
+        if (idRaw) {
+            url = `${API_BASE_URL}/clientes/${parseInt(idRaw)}`;
             metodoHTTP = 'PUT'; 
         }
 
@@ -147,7 +145,7 @@ clienteForm.addEventListener('submit', async (e) => {
         });
 
         if (respostaApi.ok) {
-            alert(id ? "Cliente atualizado!" : "Cliente cadastrado!");
+            alert(idRaw ? "Cliente atualizado!" : "Cliente cadastrado!");
             limparFormulario();
             carregarClientes(); 
         } else {
@@ -175,7 +173,7 @@ function editarCliente(id) {
 async function deletarCliente(id) {
     if (!confirm("Excluir este cliente?")) return;
     try {
-        const resposta = await fetch(`${API_BASE_URL}/clientes/${id}`, {
+        const resposta = await fetch(`${API_BASE_URL}/clientes/${parseInt(id)}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${tokenAtual}` }
         });
@@ -194,9 +192,6 @@ function limparFormulario() {
 
 btnCancelar.addEventListener('click', limparFormulario);
 
-// ==========================================
-// CONTROLE DE TELA
-// ==========================================
 function mostrarLogin() {
     loginSection.classList.remove('hidden');
     adminSection.classList.add('hidden');
