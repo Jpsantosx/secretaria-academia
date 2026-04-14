@@ -1,283 +1,132 @@
-// ==========================================
-// CONFIGURAÇÕES GERAIS DA API
-// ==========================================
 const API_BASE_URL = 'https://projeto-academia-hazel.vercel.app';
 
-// ==========================================
-// REFERÊNCIAS DO DOM
-// ==========================================
-const loginSection = document.getElementById('loginSection');
-const adminSection = document.getElementById('adminSection');
-const loginForm = document.getElementById('loginForm');
-const btnLogout = document.getElementById('btnLogout');
-const userInfo = document.getElementById('userInfo');
-const loginError = document.getElementById('loginError');
-const userEmailSpan = document.getElementById('userEmail');
+let tokenAtual = localStorage.getItem('adminToken') || null;
+let clientes = [];
 
 const clienteForm = document.getElementById('clienteForm');
 const tabelaClientes = document.getElementById('tabelaClientes');
 const totalClientesEl = document.getElementById('totalClientes');
-const btnCancelar = document.getElementById('btnCancelar');
-const formTitle = document.getElementById('formTitle');
 
-// ==========================================
-// ESTADO DA APLICAÇÃO
-// ==========================================
-let tokenAtual = localStorage.getItem('adminToken') || null;
-let clientes = [];
-let carregando = false;
-
-// ==========================================
-// INICIALIZAÇÃO
-// ==========================================
 function iniciarApp() {
     if (tokenAtual) {
-        mostrarPainelAdmin();
         carregarClientes();
-    } else {
-        mostrarLogin();
     }
 }
 
-// ==========================================
-// UTIL
-// ==========================================
 function isCpfValido(cpf) {
     return /^\d{11}$/.test(cpf);
 }
 
-function tratarNaoAutorizado(status) {
-    if (status === 401 || status === 403) {
-        alert("Sessão expirada. Faça login novamente.");
-        logout();
-        return true;
-    }
-    return false;
-}
-
-// ==========================================
-// 1. AUTENTICAÇÃO
-// ==========================================
-loginForm.addEventListener('submit', async (e) => {
+// LOGIN
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    if (carregando) return;
-    carregando = true;
 
     const usuario = document.getElementById('usuario').value;
     const senha = document.getElementById('password').value;
 
-    try {
-        const resposta = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario, senha })
-        });
+    const res = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+    });
 
-        if (resposta.ok) {
-            const dados = await resposta.json();
-            tokenAtual = dados.token;
-            localStorage.setItem('adminToken', tokenAtual);
-
-            loginForm.reset();
-            loginError.classList.add('hidden');
-
-            mostrarPainelAdmin();
-            carregarClientes();
-        } else {
-            loginError.classList.remove('hidden');
-        }
-    } catch (erro) {
-        console.error("Erro:", erro);
-        alert("Não foi possível conectar ao servidor.");
-    } finally {
-        carregando = false;
+    if (res.ok) {
+        const data = await res.json();
+        tokenAtual = data.token;
+        localStorage.setItem('adminToken', tokenAtual);
+        location.reload();
+    } else {
+        alert("Login inválido");
     }
 });
 
-function logout() {
-    tokenAtual = null;
-    localStorage.removeItem('adminToken');
-    mostrarLogin();
-}
-
-btnLogout.addEventListener('click', logout);
-
-// ==========================================
-// 2. CRUD: READ
-// ==========================================
+// LISTAR
 async function carregarClientes() {
-    try {
-        const resposta = await fetch(`${API_BASE_URL}/clientes`);
-
-        if (tratarNaoAutorizado(resposta.status)) return;
-
-        if (resposta.ok) {
-            clientes = await resposta.json();
-            renderizarTabela();
-        }
-    } catch (erro) {
-        console.error("Erro ao carregar clientes:", erro);
-        alert("Erro ao carregar clientes.");
-    }
+    const res = await fetch(`${API_BASE_URL}/clientes`);
+    clientes = await res.json();
+    renderizar();
 }
 
-function renderizarTabela() {
-    tabelaClientes.innerHTML = '';
+function renderizar() {
+    tabelaClientes.innerHTML = "";
     totalClientesEl.textContent = clientes.length;
 
-    clientes.forEach(cliente => {
-        const tr = document.createElement('tr');
-
-        tr.innerHTML = `
-            <td class="px-6 py-4 text-sm text-gray-800">${cliente.nome}</td>
-            <td class="px-6 py-4 text-sm text-gray-600">${cliente.cpf}</td>
-            <td class="px-6 py-4 text-sm">
-                <span class="${cliente.autorizado ? 'text-green-600' : 'text-red-600'}">
-                    ${cliente.autorizado ? 'Autorizado' : 'Bloqueado'}
-                </span>
+    clientes.forEach(c => {
+        tabelaClientes.innerHTML += `
+        <tr>
+            <td>${c.cpf}</td>
+            <td>${c.nome}</td>
+            <td>
+                <button onclick="editar(${c.id})">Editar</button>
+                <button onclick="deletar(${c.id})">Excluir</button>
             </td>
-            <td class="px-6 py-4 text-right text-sm font-medium">
-                <button onclick="editarCliente(${cliente.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
-                <button onclick="deletarCliente(${cliente.id})" class="text-red-600 hover:text-red-900">Excluir</button>
-            </td>
-        `;
-
-        tabelaClientes.appendChild(tr);
+        </tr>`;
     });
 }
 
-// ==========================================
-// 3. CRUD: CREATE e UPDATE
-// ==========================================
+// SALVAR
 clienteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    if (carregando) return;
-    carregando = true;
+    const id = document.getElementById('clienteId').value;
 
-    const idRaw = document.getElementById('clienteId').value;
-
-    const clienteData = {
-        nome: document.getElementById('nome').value.trim(),
-        cpf: String(document.getElementById('cpf').value).trim(),
-        autorizado: document.getElementById('autorizado').checked
+    const data = {
+        nome: document.getElementById('nome').value,
+        cpf: document.getElementById('cpf').value,
+        autorizado: document.getElementById('autorizado').value === "true"
     };
 
-    if (!clienteData.nome || !isCpfValido(clienteData.cpf)) {
-        alert("Preencha os dados corretamente (CPF com 11 dígitos).");
-        carregando = false;
+    if (!isCpfValido(data.cpf)) {
+        alert("CPF inválido");
         return;
     }
 
-    try {
-        let url = `${API_BASE_URL}/clientes`;
-        let metodoHTTP = 'POST';
+    let url = `${API_BASE_URL}/clientes`;
+    let metodo = 'POST';
 
-        if (idRaw) {
-            url = `${API_BASE_URL}/clientes/${parseInt(idRaw)}`;
-            metodoHTTP = 'PUT';
-        }
+    if (id) {
+        url += `/${id}`;
+        metodo = 'PUT';
+    }
 
-        const respostaApi = await fetch(url, {
-            method: metodoHTTP,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tokenAtual}`
-            },
-            body: JSON.stringify(clienteData)
-        });
+    const res = await fetch(url, {
+        method: metodo,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenAtual}`
+        },
+        body: JSON.stringify(data)
+    });
 
-        if (tratarNaoAutorizado(respostaApi.status)) return;
-
-        if (respostaApi.ok) {
-            alert(idRaw ? "Cliente atualizado!" : "Cliente cadastrado!");
-            limparFormulario();
-            carregarClientes();
-        } else {
-            const erro = await respostaApi.json();
-            alert("Erro: " + (erro.error || "Falha na operação"));
-        }
-    } catch (erro) {
-        console.error("Erro na requisição:", erro);
-        alert("Erro ao salvar cliente.");
-    } finally {
-        carregando = false;
+    if (res.ok) {
+        alert("Salvo!");
+        clienteForm.reset();
+        carregarClientes();
+    } else {
+        alert("Erro");
     }
 });
 
-// ==========================================
-// EDITAR / DELETE
-// ==========================================
-function editarCliente(id) {
-    const cliente = clientes.find(c => c.id === id);
+// EDITAR
+function editar(id) {
+    const c = clientes.find(x => x.id === id);
 
-    if (cliente) {
-        document.getElementById('clienteId').value = cliente.id;
-        document.getElementById('nome').value = cliente.nome;
-        document.getElementById('cpf').value = cliente.cpf;
-        document.getElementById('autorizado').checked = cliente.autorizado;
-
-        formTitle.textContent = "Editar Cliente";
-        btnCancelar.classList.remove('hidden');
-
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    document.getElementById('clienteId').value = c.id;
+    document.getElementById('nome').value = c.nome;
+    document.getElementById('cpf').value = c.cpf;
+    document.getElementById('autorizado').value = String(c.autorizado);
 }
 
-async function deletarCliente(id) {
-    if (!confirm("Excluir este cliente?")) return;
-
-    try {
-        const resposta = await fetch(`${API_BASE_URL}/clientes/${parseInt(id)}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${tokenAtual}`
-            }
-        });
-
-        if (tratarNaoAutorizado(resposta.status)) return;
-
-        if (resposta.ok) {
-            carregarClientes();
-        } else {
-            alert("Erro ao excluir cliente.");
+// DELETE
+async function deletar(id) {
+    await fetch(`${API_BASE_URL}/clientes/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${tokenAtual}`
         }
-    } catch (erro) {
-        console.error(erro);
-        alert("Erro ao excluir cliente.");
-    }
+    });
+
+    carregarClientes();
 }
 
-// ==========================================
-// FORM
-// ==========================================
-function limparFormulario() {
-    clienteForm.reset();
-    document.getElementById('clienteId').value = '';
-    formTitle.textContent = "Novo Cliente";
-    btnCancelar.classList.add('hidden');
-}
-
-btnCancelar.addEventListener('click', limparFormulario);
-
-// ==========================================
-// UI
-// ==========================================
-function mostrarLogin() {
-    loginSection.classList.remove('hidden');
-    adminSection.classList.add('hidden');
-    userInfo.classList.add('hidden');
-}
-
-function mostrarPainelAdmin() {
-    loginSection.classList.add('hidden');
-    adminSection.classList.remove('hidden');
-    userInfo.classList.remove('hidden');
-    userEmailSpan.textContent = "Admin Gym";
-}
-
-// ==========================================
-// START
-// ==========================================
 iniciarApp();
