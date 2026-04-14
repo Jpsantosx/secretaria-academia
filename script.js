@@ -25,7 +25,11 @@ const formTitle = document.getElementById('formTitle');
 // ==========================================
 let tokenAtual = localStorage.getItem('adminToken') || null;
 let clientes = [];
+let carregando = false;
 
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
 function iniciarApp() {
     if (tokenAtual) {
         mostrarPainelAdmin();
@@ -36,11 +40,30 @@ function iniciarApp() {
 }
 
 // ==========================================
+// UTIL
+// ==========================================
+function isCpfValido(cpf) {
+    return /^\d{11}$/.test(cpf);
+}
+
+function tratarNaoAutorizado(status) {
+    if (status === 401 || status === 403) {
+        alert("Sessão expirada. Faça login novamente.");
+        logout();
+        return true;
+    }
+    return false;
+}
+
+// ==========================================
 // 1. AUTENTICAÇÃO
 // ==========================================
 loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    
+    e.preventDefault();
+
+    if (carregando) return;
+    carregando = true;
+
     const usuario = document.getElementById('usuario').value;
     const senha = document.getElementById('password').value;
 
@@ -52,28 +75,33 @@ loginForm.addEventListener('submit', async (e) => {
         });
 
         if (resposta.ok) {
-            const dados = await resposta.json(); 
+            const dados = await resposta.json();
             tokenAtual = dados.token;
-            localStorage.setItem('adminToken', tokenAtual); 
-            
-            loginForm.reset(); 
+            localStorage.setItem('adminToken', tokenAtual);
+
+            loginForm.reset();
             loginError.classList.add('hidden');
+
             mostrarPainelAdmin();
-            carregarClientes(); 
+            carregarClientes();
         } else {
             loginError.classList.remove('hidden');
         }
     } catch (erro) {
         console.error("Erro:", erro);
         alert("Não foi possível conectar ao servidor.");
+    } finally {
+        carregando = false;
     }
 });
 
-btnLogout.addEventListener('click', () => {
+function logout() {
     tokenAtual = null;
     localStorage.removeItem('adminToken');
-    mostrarLogin(); 
-});
+    mostrarLogin();
+}
+
+btnLogout.addEventListener('click', logout);
 
 // ==========================================
 // 2. CRUD: READ
@@ -81,21 +109,26 @@ btnLogout.addEventListener('click', () => {
 async function carregarClientes() {
     try {
         const resposta = await fetch(`${API_BASE_URL}/clientes`);
+
+        if (tratarNaoAutorizado(resposta.status)) return;
+
         if (resposta.ok) {
-            clientes = await resposta.json(); 
-            renderizarTabela(); 
+            clientes = await resposta.json();
+            renderizarTabela();
         }
     } catch (erro) {
         console.error("Erro ao carregar clientes:", erro);
+        alert("Erro ao carregar clientes.");
     }
 }
 
 function renderizarTabela() {
-    tabelaClientes.innerHTML = ''; 
+    tabelaClientes.innerHTML = '';
     totalClientesEl.textContent = clientes.length;
 
     clientes.forEach(cliente => {
         const tr = document.createElement('tr');
+
         tr.innerHTML = `
             <td class="px-6 py-4 text-sm text-gray-800">${cliente.nome}</td>
             <td class="px-6 py-4 text-sm text-gray-600">${cliente.cpf}</td>
@@ -109,6 +142,7 @@ function renderizarTabela() {
                 <button onclick="deletarCliente(${cliente.id})" class="text-red-600 hover:text-red-900">Excluir</button>
             </td>
         `;
+
         tabelaClientes.appendChild(tr);
     });
 }
@@ -119,20 +153,30 @@ function renderizarTabela() {
 clienteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    if (carregando) return;
+    carregando = true;
+
     const idRaw = document.getElementById('clienteId').value;
-    const clienteData = { 
-        nome: document.getElementById('nome').value, 
-        cpf: String(document.getElementById('cpf').value), 
-        autorizado: document.getElementById('autorizado').checked 
+
+    const clienteData = {
+        nome: document.getElementById('nome').value.trim(),
+        cpf: String(document.getElementById('cpf').value).trim(),
+        autorizado: document.getElementById('autorizado').checked
     };
+
+    if (!clienteData.nome || !isCpfValido(clienteData.cpf)) {
+        alert("Preencha os dados corretamente (CPF com 11 dígitos).");
+        carregando = false;
+        return;
+    }
 
     try {
         let url = `${API_BASE_URL}/clientes`;
-        let metodoHTTP = 'POST'; 
+        let metodoHTTP = 'POST';
 
         if (idRaw) {
             url = `${API_BASE_URL}/clientes/${parseInt(idRaw)}`;
-            metodoHTTP = 'PUT'; 
+            metodoHTTP = 'PUT';
         }
 
         const respostaApi = await fetch(url, {
@@ -144,45 +188,70 @@ clienteForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(clienteData)
         });
 
+        if (tratarNaoAutorizado(respostaApi.status)) return;
+
         if (respostaApi.ok) {
             alert(idRaw ? "Cliente atualizado!" : "Cliente cadastrado!");
             limparFormulario();
-            carregarClientes(); 
+            carregarClientes();
         } else {
             const erro = await respostaApi.json();
             alert("Erro: " + (erro.error || "Falha na operação"));
         }
     } catch (erro) {
         console.error("Erro na requisição:", erro);
+        alert("Erro ao salvar cliente.");
+    } finally {
+        carregando = false;
     }
 });
 
+// ==========================================
+// EDITAR / DELETE
+// ==========================================
 function editarCliente(id) {
-    const cliente = clientes.find(c => c.id === id); 
+    const cliente = clientes.find(c => c.id === id);
+
     if (cliente) {
         document.getElementById('clienteId').value = cliente.id;
         document.getElementById('nome').value = cliente.nome;
         document.getElementById('cpf').value = cliente.cpf;
         document.getElementById('autorizado').checked = cliente.autorizado;
+
         formTitle.textContent = "Editar Cliente";
         btnCancelar.classList.remove('hidden');
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
 
 async function deletarCliente(id) {
     if (!confirm("Excluir este cliente?")) return;
+
     try {
         const resposta = await fetch(`${API_BASE_URL}/clientes/${parseInt(id)}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${tokenAtual}` }
+            headers: {
+                'Authorization': `Bearer ${tokenAtual}`
+            }
         });
-        if (resposta.ok) carregarClientes(); 
+
+        if (tratarNaoAutorizado(resposta.status)) return;
+
+        if (resposta.ok) {
+            carregarClientes();
+        } else {
+            alert("Erro ao excluir cliente.");
+        }
     } catch (erro) {
         console.error(erro);
+        alert("Erro ao excluir cliente.");
     }
 }
 
+// ==========================================
+// FORM
+// ==========================================
 function limparFormulario() {
     clienteForm.reset();
     document.getElementById('clienteId').value = '';
@@ -192,6 +261,9 @@ function limparFormulario() {
 
 btnCancelar.addEventListener('click', limparFormulario);
 
+// ==========================================
+// UI
+// ==========================================
 function mostrarLogin() {
     loginSection.classList.remove('hidden');
     adminSection.classList.add('hidden');
@@ -202,7 +274,10 @@ function mostrarPainelAdmin() {
     loginSection.classList.add('hidden');
     adminSection.classList.remove('hidden');
     userInfo.classList.remove('hidden');
-    userEmailSpan.textContent = "Admin Gym"; 
+    userEmailSpan.textContent = "Admin Gym";
 }
 
+// ==========================================
+// START
+// ==========================================
 iniciarApp();
