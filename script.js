@@ -1,7 +1,7 @@
-
 // ==========================================
 // CONFIGURAÇÕES GERAIS DA API
 // ==========================================
+// DICA: Mude para 'http://127.0.0.1:5000' se estiver testando o backend localmente
 const API_BASE_URL = 'https://projeto-academia-hazel.vercel.app';
 
 // ==========================================
@@ -37,7 +37,7 @@ function iniciarApp() {
 }
 
 // ==========================================
-// 1. AUTENTICAÇÃO (Login / Logout)
+// 1. AUTENTICAÇÃO
 // ==========================================
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault(); 
@@ -49,7 +49,7 @@ loginForm.addEventListener('submit', async (e) => {
         const resposta = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario, senha }) // Mapeado para os campos do app.py
+            body: JSON.stringify({ usuario, senha })
         });
 
         if (resposta.ok) {
@@ -58,6 +58,7 @@ loginForm.addEventListener('submit', async (e) => {
             localStorage.setItem('adminToken', tokenAtual); 
             
             loginForm.reset(); 
+            loginError.classList.add('hidden');
             mostrarPainelAdmin();
             carregarClientes(); 
         } else {
@@ -76,21 +77,18 @@ btnLogout.addEventListener('click', () => {
 });
 
 // ==========================================
-// 2. CRUD: READ (Carregar lista de clientes)
+// 2. CRUD: READ
 // ==========================================
 async function carregarClientes() {
     try {
-        const resposta = await fetch(`${API_BASE_URL}/clientes`, {
-            method: 'GET'
-            // Rota /clientes no app.py é aberta, mas você pode adicionar o header se desejar
-        });
+        const resposta = await fetch(`${API_BASE_URL}/clientes`);
 
         if (resposta.ok) {
             clientes = await resposta.json(); 
             renderizarTabela(); 
         }
     } catch (erro) {
-        console.error("Erro:", erro);
+        console.error("Erro ao carregar clientes:", erro);
     }
 }
 
@@ -143,7 +141,7 @@ clienteForm.addEventListener('submit', async (e) => {
             method: metodoHTTP,
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tokenAtual}` // Exigido pelas rotas fechadas
+                'Authorization': `Bearer ${tokenAtual}`
             },
             body: JSON.stringify(clienteData)
         });
@@ -154,10 +152,10 @@ clienteForm.addEventListener('submit', async (e) => {
             carregarClientes(); 
         } else {
             const erro = await respostaApi.json();
-            alert("Erro: " + erro.error);
+            alert("Erro: " + (erro.error || "Falha na operação"));
         }
     } catch (erro) {
-        console.error("Erro:", erro);
+        console.error("Erro na requisição:", erro);
     }
 });
 
@@ -170,6 +168,7 @@ function editarCliente(id) {
         document.getElementById('autorizado').checked = cliente.autorizado;
         formTitle.textContent = "Editar Cliente";
         btnCancelar.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
 
