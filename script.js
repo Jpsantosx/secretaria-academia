@@ -56,6 +56,7 @@ async function carregarClientes() {
                     </span>
                 </td>
                 <td class="text-right">
+                    <button onclick="editarNome(${c.id}, '${c.nome}')" class="text-blue-400 mr-3">Editar</button>
                     <button onclick="toggle(${c.id}, ${!c.autorizado})" class="text-yellow-400 mr-3">alt-status</button>
                     <button onclick="deletar(${c.id})" class="text-red-500">Del</button>
                 </td>
@@ -72,7 +73,7 @@ document.getElementById("clienteForm").addEventListener("submit", async (e) => {
     const nome = document.getElementById("nome").value;
     const autorizado = document.getElementById("autorizado").value === "true";
 
-    await fetch(API + "/clientes", {
+    const res = await fetch(API + "/clientes", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -81,8 +82,40 @@ document.getElementById("clienteForm").addEventListener("submit", async (e) => {
         body: JSON.stringify({ cpf, nome, autorizado })
     });
 
+    if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Erro ao cadastrar cliente.");
+        return; // Interrompe a execução para não recarregar a lista à toa
+    }
+
     carregarClientes();
 });
+
+// EDITAR NOME
+async function editarNome(id, nomeAtual) {
+    const novoNome = prompt("Digite o novo nome para o cliente:", nomeAtual);
+
+    // Verifica se o usuário cancelou o prompt ou deixou em branco
+    if (novoNome === null || novoNome.trim() === "" || novoNome === nomeAtual) {
+        return; 
+    }
+
+    const res = await fetch(API + "/clientes/" + id, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + TOKEN
+        },
+        body: JSON.stringify({ nome: novoNome })
+    });
+
+    if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Erro ao atualizar o nome.");
+    } else {
+        carregarClientes();
+    }
+}
 
 // DELETE
 async function deletar(id) {
@@ -98,7 +131,7 @@ async function deletar(id) {
     carregarClientes();
 }
 
-// TOGGLE
+// ALT-STATUS
 async function toggle(id, status) {
     await fetch(API + "/clientes/" + id, {
         method: "PATCH",

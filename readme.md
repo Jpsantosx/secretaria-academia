@@ -31,7 +31,8 @@ O painel utiliza uma identidade visual robusta, caracterizada por:
 * **Status em Tempo Real**: Indicadores visuais verdes (Ativo) e vermelhos (Bloqueado).
 
 ### 3. Operações de Dados (CRUD)
-* **Toggle de Status**: Alteração rápida entre "Ativo" e "Bloqueado" via método `PATCH`.
+* **Editar**: Permite editar o nome do cliente
+* **Alt-Status**: Alteração rápida entre "Ativo" e "Bloqueado" via método `PATCH`.
 * **Exclusão**: Remoção de registros com confirmação de segurança.
 * **Atualização**: Botão dedicado para sincronização manual com o servidor.
 
