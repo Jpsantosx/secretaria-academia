@@ -56,7 +56,7 @@ async function carregarClientes() {
                     </span>
                 </td>
                 <td class="text-right">
-                    <button onclick="toggle(${c.id}, ${!c.autorizado})" class="text-yellow-400 mr-3">Toggle</button>
+                    <button onclick="ativar/desativar(${c.id}, ${!c.autorizado})" class="text-yellow-400 mr-3">Toggle</button>
                     <button onclick="deletar(${c.id})" class="text-red-500">Del</button>
                 </td>
             </tr>
