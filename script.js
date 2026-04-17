@@ -69,9 +69,20 @@ async function carregarClientes() {
 document.getElementById("clienteForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const cpf = document.getElementById("cpf").value;
-    const nome = document.getElementById("nome").value;
+    const cpf = document.getElementById("cpf").value.replace(/\D/g, '');
+    const nome = document.getElementById("nome").value.trim();
     const autorizado = document.getElementById("autorizado").value === "true";
+
+    // Validação do CPF
+    if (cpf.length !== 11) {
+        alert("O CPF deve conter 11 números.");
+        return;
+    }
+    // Validação do Nome
+    if (nome.length > 64) {
+        alert("O nome deve ter no máximo 64 caracteres.");
+        return;
+    }
 
     const res = await fetch(API + "/clientes", {
         method: "POST",
@@ -85,9 +96,11 @@ document.getElementById("clienteForm").addEventListener("submit", async (e) => {
     if (!res.ok) {
         const data = await res.json();
         alert(data.error || "Erro ao cadastrar cliente.");
-        return; // Interrompe a execução para não recarregar a lista à toa
+        return; 
     }
 
+    // Limpa
+    e.target.reset();
     carregarClientes();
 });
 
