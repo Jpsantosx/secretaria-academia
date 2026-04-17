@@ -41,4 +41,6 @@ O painel utiliza uma identidade visual robusta, caracterizada por:
 * `index.html`: Contém a estrutura da interface, seções de login e o painel principal.
 * `script.js`: Gerencia as requisições para a API, manipulação do DOM e controle do estado de autenticação.
 
+* link vercel:https://secretaria-academia.vercel.app/
+
 ### Criado por Felipe Barros e João Pedro Stadler
